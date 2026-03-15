@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCK Studio Web</title>
+    <meta name="description" content="Minecraft Legacy Console Edition の .pck ファイルをブラウザで閲覧・編集">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header id="app-header">
+    <span class="logo">📦</span>
+    <h1 id="app-title">PCK Studio <span>Web</span></h1>
+
+    <input type="file" id="file-input" accept=".pck" hidden>
+    <button class="btn btn-primary" id="open-btn">📂 PCKを開く</button>
+    <button class="btn btn-ghost" id="theme-toggle-btn" title="テーマ切り替え">☀️</button>
+</header>
+
+<!-- ── PCK info bar ───────────────────────────────────────────────────────── -->
+<div id="pck-info-bar"></div>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<main id="main">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+        <div id="search-wrap">
+            <input type="search" id="search-input" placeholder="🔍 ファイルを検索…" spellcheck="false">
+        </div>
+        <div id="tree-panel">
+            <div style="padding:16px; color:var(--text-dim); font-size:12px; text-align:center;">
+                PCKファイルを開いてください
+            </div>
+        </div>
+    </aside>
+
+    <!-- Content area -->
+    <section id="content-area">
+
+        <!-- Welcome panel (shown before any file is opened) -->
+        <div id="welcome-panel">
+            <div class="welcome-logo">📦</div>
+            <div class="welcome-title">PCK Studio Web</div>
+            <div class="welcome-sub">Minecraft Legacy Console Edition .pck ファイルビューア</div>
+            <div class="drop-hint">
+                <strong>PCKファイルをドラッグ&ドロップ</strong><br>
+                または上の「📂 PCKを開く」ボタンを押してください
+            </div>
+        </div>
+
+        <!-- Asset content viewer (shown after a file is selected) -->
+        <div id="content-panel" style="display:none"></div>
+
+    </section>
+
+</main>
+
+<!-- ── Status bar ─────────────────────────────────────────────────────────── -->
+<footer id="status-bar">
+    <span id="status-text">PCKファイルを開いてください</span>
+</footer>
+
+<!-- ── Drop overlay ───────────────────────────────────────────────────────── -->
+<div id="drop-overlay" aria-hidden="true">
+    <div class="drop-icon">📦</div>
+    <div class="drop-msg">PCKファイルをドロップ</div>
+</div>
+
+<!-- ── Three.js (CDN) ─────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
+
+<!-- ── App scripts ────────────────────────────────────────────────────────── -->
+<script src="js/pck-parser.js"></script>
+<script src="js/skin-renderer.js"></script>
+<script>
+    // Show content panel instead of welcome panel once a file is loaded
+    const _origOnPckLoaded = window.onPckLoaded;
+    document.addEventListener('DOMContentLoaded', () => {
+        const welcome = document.getElementById('welcome-panel');
+        const content = document.getElementById('content-panel');
+        // Patch onPckLoaded to toggle panels
+        const origBuildTree = window.buildTree;
+        window._patchApply = true;
+    });
+</script>
+<script src="js/app.js"></script>
+<script>
+    // After app.js is loaded, patch onPckLoaded to toggle welcome/content panels
+    (function() {
+        const _orig = window.onPckLoaded;
+        window.onPckLoaded = function() {
+            document.getElementById('welcome-panel').style.display = 'none';
+            document.getElementById('content-panel').style.display = 'flex';
+            _orig.call(this);
+        };
+    })();
+</script>
+
+</body>
+</html>
