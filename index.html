@@ -15,6 +15,7 @@
     <h1 id="app-title">PCK Studio <span>Web</span></h1>
 
     <input type="file" id="file-input" accept=".pck" hidden>
+    <button class="btn btn-ghost2" id="new-pck-btn" onclick="newPck()" title="新規PCKを作成">📄 新規</button>
     <button class="btn btn-primary" id="open-btn">📂 PCKを開く</button>
     <button class="btn btn-ghost" id="theme-toggle-btn" title="テーマ切り替え">☀️</button>
 </header>
@@ -40,18 +41,18 @@
     <!-- Content area -->
     <section id="content-area">
 
-        <!-- Welcome panel (shown before any file is opened) -->
+        <!-- Welcome panel -->
         <div id="welcome-panel">
             <div class="welcome-logo">📦</div>
             <div class="welcome-title">PCK Studio Web</div>
-            <div class="welcome-sub">Minecraft Legacy Console Edition .pck ファイルビューア</div>
+            <div class="welcome-sub">Minecraft Legacy Console Edition .pck ファイルビューア・エディタ</div>
             <div class="drop-hint">
                 <strong>PCKファイルをドラッグ&ドロップ</strong><br>
                 または上の「📂 PCKを開く」ボタンを押してください
             </div>
         </div>
 
-        <!-- Asset content viewer (shown after a file is selected) -->
+        <!-- Asset content viewer -->
         <div id="content-panel" style="display:none"></div>
 
     </section>
@@ -69,30 +70,43 @@
     <div class="drop-msg">PCKファイルをドロップ</div>
 </div>
 
-<!-- ── Three.js (CDN) ─────────────────────────────────────────────────────── -->
+<!-- ── Context menu ───────────────────────────────────────────────────────── -->
+<div id="ctx-menu" class="ctx-menu hidden">
+    <div class="ctx-item" data-action="download">⬇ ダウンロード</div>
+    <div class="ctx-item" data-action="replace">📂 置き換え</div>
+    <div class="ctx-item" data-action="rename">✏️ 名前変更</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item ctx-danger" data-action="remove">🗑️ 削除</div>
+</div>
+
+<!-- ── Modal ──────────────────────────────────────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <div class="modal-header">
+            <span id="modal-title">ダイアログ</span>
+            <button id="modal-close" class="modal-close-btn">×</button>
+        </div>
+        <div id="modal-body"   class="modal-body"></div>
+        <div id="modal-footer" class="modal-footer"></div>
+    </div>
+</div>
+
+<!-- ── Three.js ───────────────────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"
-        crossorigin="anonymous"
-        referrerpolicy="no-referrer"></script>
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- ── JSZip ──────────────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <!-- ── App scripts ────────────────────────────────────────────────────────── -->
 <script src="js/pck-parser.js"></script>
 <script src="js/pck-builder.js"></script>
 <script src="js/skin-renderer.js"></script>
 <script src="js/image-editor.js"></script>
-<script>
-    // Show content panel instead of welcome panel once a file is loaded
-    const _origOnPckLoaded = window.onPckLoaded;
-    document.addEventListener('DOMContentLoaded', () => {
-        const welcome = document.getElementById('welcome-panel');
-        const content = document.getElementById('content-panel');
-        // Patch onPckLoaded to toggle panels
-        const origBuildTree = window.buildTree;
-        window._patchApply = true;
-    });
-</script>
 <script src="js/app.js"></script>
 <script>
-    // After app.js is loaded, patch onPckLoaded to toggle welcome/content panels
+    // Patch onPckLoaded to toggle welcome/content panels
     (function() {
         const _orig = window.onPckLoaded;
         window.onPckLoaded = function() {
