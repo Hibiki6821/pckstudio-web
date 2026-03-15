@@ -32,7 +32,7 @@ class SkinRenderer {
         const h = this.container.clientHeight || 500;
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x23233a);
+        this.scene.background = new THREE.Color(0x1e1e1e);
 
         this.camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 1000);
         this.camera.position.set(0, 5, 72);
@@ -43,7 +43,7 @@ class SkinRenderer {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.container.appendChild(this.renderer.domElement);
 
-        const grid = new THREE.GridHelper(50, 10, 0x3a3a5c, 0x2e2e4a);
+        const grid = new THREE.GridHelper(50, 10, 0x3a3a3a, 0x2a2a2a);
         grid.position.y = -16.5;
         this.scene.add(grid);
 
