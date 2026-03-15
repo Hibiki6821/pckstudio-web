@@ -107,11 +107,11 @@ class SkinRenderer {
             // Normalize: v is flipped because texture Y=0 is at top, UV Y=0 is at bottom
             const u1 = x1 / texW, u2 = x2 / texW;
             const v1 = 1 - y2 / texH, v2 = 1 - y1 / texH;
-            // BoxGeometry UV order per face: [bottom-left, bottom-right, top-left, top-right]
-            uvAttr.setXY(i + 0, u1, v1); // bottom-left
-            uvAttr.setXY(i + 1, u2, v1); // bottom-right
-            uvAttr.setXY(i + 2, u1, v2); // top-left
-            uvAttr.setXY(i + 3, u2, v2); // top-right
+            // BoxGeometry UV order per face: [top-left, top-right, bottom-left, bottom-right]
+            uvAttr.setXY(i + 0, u1, v2); // top-left
+            uvAttr.setXY(i + 1, u2, v2); // top-right
+            uvAttr.setXY(i + 2, u1, v1); // bottom-left
+            uvAttr.setXY(i + 3, u2, v1); // bottom-right
         });
         uvAttr.needsUpdate = true;
 

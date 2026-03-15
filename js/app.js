@@ -75,8 +75,41 @@ function onPckLoaded() {
     welcomePanel.style.display = 'none';
     contentPanel.innerHTML = '<div class="placeholder">← アセットを選択してください</div>';
 
+    // Show/activate the "Save PCK" button in header
+    let saveBtn = document.getElementById('save-pck-btn');
+    if (!saveBtn) {
+        saveBtn = document.createElement('button');
+        saveBtn.id = 'save-pck-btn';
+        saveBtn.className = 'btn btn-primary';
+        saveBtn.textContent = '💾 PCKを保存';
+        saveBtn.title = '変更を含む PCK ファイルをダウンロード';
+        saveBtn.addEventListener('click', savePck);
+        document.getElementById('open-btn').insertAdjacentElement('afterend', saveBtn);
+    }
+    saveBtn.style.display = '';
+
     buildTree(assets);
     searchInput.value = '';
+}
+
+// ── Save (rebuild) PCK ────────────────────────────────────────────────────────
+function savePck() {
+    if (!pckData) return;
+    try {
+        const builder = new PckBuilder();
+        const bytes   = builder.build(pckData);
+        const blob    = new Blob([bytes], { type: 'application/octet-stream' });
+        const url     = URL.createObjectURL(blob);
+        const a       = document.createElement('a');
+        a.href     = url;
+        a.download = pckData.filename || 'modified.pck';
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus(`保存完了: ${pckData.filename}`);
+    } catch (err) {
+        setStatus('PCK保存エラー: ' + err.message, true);
+        alert('PCKの保存に失敗しました:\n' + err.message);
+    }
 }
 
 // ── Tree building ─────────────────────────────────────────────────────────────
@@ -223,87 +256,180 @@ function makeHeader(asset) {
     return header;
 }
 
-// Image viewer (PNG)
+// Image viewer (PNG) with Edit tab
 function showImageViewer(asset, container) {
-    const blob = new Blob([asset.data], { type: 'image/png' });
-    const url = URL.createObjectURL(blob);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'image-viewer';
-
-    const img = document.createElement('img');
-    img.src = url;
-    img.className = 'preview-image pixelated';
-    img.alt = asset.filename;
-    img.onload = () => {
-        img.title = `${img.naturalWidth} × ${img.naturalHeight} px`;
-        wrap.querySelector('.img-size').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
-        URL.revokeObjectURL(url);
-    };
-
-    const sizeLabel = document.createElement('div');
-    sizeLabel.className = 'img-size';
-    sizeLabel.textContent = '…';
-
-    wrap.appendChild(img);
-    wrap.appendChild(sizeLabel);
-    container.appendChild(wrap);
-}
-
-// Skin: 3D preview + 2D flat view
-function showSkinOrImage(asset, container) {
     const tabs = document.createElement('div');
     tabs.className = 'tabs';
-    const tab3d = document.createElement('button');
-    tab3d.textContent = '3D プレビュー';
-    tab3d.className = 'tab active';
-    const tab2d = document.createElement('button');
-    tab2d.textContent = '2D テクスチャ';
-    tab2d.className = 'tab';
-    tabs.appendChild(tab3d);
-    tabs.appendChild(tab2d);
+
+    const tabPreview = document.createElement('button');
+    tabPreview.textContent = 'プレビュー';
+    tabPreview.className   = 'tab active';
+    const tabEdit = document.createElement('button');
+    tabEdit.textContent = '✏️ 編集';
+    tabEdit.className   = 'tab';
+    tabs.appendChild(tabPreview);
+    tabs.appendChild(tabEdit);
     container.appendChild(tabs);
 
-    const panel3d = document.createElement('div');
+    // ── Preview panel ──────────────────────────────────────────────────────
+    const previewPanel = document.createElement('div');
+    previewPanel.className = 'image-viewer';
+
+    const blob = new Blob([asset.data], { type: 'image/png' });
+    const url  = URL.createObjectURL(blob);
+    const img  = document.createElement('img');
+    img.src       = url;
+    img.className = 'preview-image pixelated';
+    img.alt       = asset.filename;
+    const sizeLabel = document.createElement('div');
+    sizeLabel.className   = 'img-size';
+    sizeLabel.textContent = '…';
+    img.onload = () => {
+        sizeLabel.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+        URL.revokeObjectURL(url);
+    };
+    previewPanel.appendChild(img);
+    previewPanel.appendChild(sizeLabel);
+
+    // ── Edit panel ─────────────────────────────────────────────────────────
+    const editPanel = document.createElement('div');
+    editPanel.style.display = 'none';
+    editPanel.style.flex    = '1';
+    editPanel.style.overflow = 'hidden';
+    let editorBuilt = false;
+
+    container.appendChild(previewPanel);
+    container.appendChild(editPanel);
+
+    tabPreview.addEventListener('click', () => {
+        tabPreview.classList.add('active'); tabEdit.classList.remove('active');
+        previewPanel.style.display = ''; editPanel.style.display = 'none';
+    });
+    tabEdit.addEventListener('click', () => {
+        tabEdit.classList.add('active'); tabPreview.classList.remove('active');
+        editPanel.style.display = 'flex'; editPanel.style.flexDirection = 'column';
+        previewPanel.style.display = 'none';
+        if (!editorBuilt) {
+            editorBuilt = true;
+            new ImageEditor(editPanel, asset, () => {
+                // Refresh preview after apply
+                const b2  = new Blob([asset.data], { type: 'image/png' });
+                const u2  = URL.createObjectURL(b2);
+                img.onload = () => {
+                    sizeLabel.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+                    URL.revokeObjectURL(u2);
+                };
+                img.src = u2;
+            });
+        }
+    });
+}
+
+// Skin: 3D preview + 2D flat view + Edit
+function showSkinOrImage(asset, container) {
+    const tabs  = document.createElement('div');
+    tabs.className = 'tabs';
+
+    const makeTab = (label, active) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.className   = 'tab' + (active ? ' active' : '');
+        tabs.appendChild(b);
+        return b;
+    };
+
+    const tab3d   = makeTab('3D プレビュー', true);
+    const tab2d   = makeTab('2D テクスチャ', false);
+    const tabEdit = makeTab('✏️ 編集', false);
+    container.appendChild(tabs);
+
+    // ── Panels ────────────────────────────────────────────────────────────
+    const panel3d   = document.createElement('div');
     panel3d.className = 'skin-3d-panel';
+
     const panel2d = document.createElement('div');
     panel2d.className = 'image-viewer';
     panel2d.style.display = 'none';
 
-    // 2D image
-    const blob = new Blob([asset.data], { type: 'image/png' });
-    const url2d = URL.createObjectURL(blob);
-    const img = document.createElement('img');
-    img.src = url2d;
-    img.className = 'preview-image pixelated';
-    const sizeLabel = document.createElement('div');
-    sizeLabel.className = 'img-size';
-    img.onload = () => {
-        sizeLabel.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
-        URL.revokeObjectURL(url2d);
-    };
-    panel2d.appendChild(img);
-    panel2d.appendChild(sizeLabel);
+    const panelEdit = document.createElement('div');
+    panelEdit.style.display = 'none';
+    panelEdit.style.flex    = '1';
+    panelEdit.style.overflow = 'hidden';
+    panelEdit.style.display = 'none';
 
     container.appendChild(panel3d);
     container.appendChild(panel2d);
+    container.appendChild(panelEdit);
 
-    // 3D renderer
+    // ── 2D image (lazy-built on first open) ────────────────────────────────
+    let panel2dBuilt = false;
+    const build2d = () => {
+        if (panel2dBuilt) return;
+        panel2dBuilt = true;
+        const blob    = new Blob([asset.data], { type: 'image/png' });
+        const url2d   = URL.createObjectURL(blob);
+        const img     = document.createElement('img');
+        img.src       = url2d;
+        img.className = 'preview-image pixelated';
+        const sizeLabel = document.createElement('div');
+        sizeLabel.className = 'img-size';
+        img.onload = () => {
+            sizeLabel.textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+            URL.revokeObjectURL(url2d);
+        };
+        panel2d.appendChild(img);
+        panel2d.appendChild(sizeLabel);
+    };
+
+    // ── Editor (lazy-built) ────────────────────────────────────────────────
+    let editorBuilt = false;
+    const buildEditor = () => {
+        if (editorBuilt) return;
+        editorBuilt = true;
+        new ImageEditor(panelEdit, asset, (newBytes) => {
+            // After apply: reload 3D renderer if it's the current tab
+            if (!panel3d.style.display || panel3d.style.display === '') {
+                if (skinRenderer) { skinRenderer.dispose(); skinRenderer = null; }
+                skinRenderer = new SkinRenderer(panel3d);
+                skinRenderer.loadSkin(newBytes);
+            }
+            // Refresh 2D if built
+            if (panel2dBuilt) {
+                panel2d.innerHTML = '';
+                panel2dBuilt = false;
+                build2d();
+            }
+        });
+    };
+
+    // ── 3D renderer ────────────────────────────────────────────────────────
     skinRenderer = new SkinRenderer(panel3d);
     skinRenderer.loadSkin(asset.data);
 
-    // Tab switching
-    tab3d.addEventListener('click', () => {
-        tab3d.classList.add('active'); tab2d.classList.remove('active');
-        panel3d.style.display = ''; panel2d.style.display = 'none';
-        skinRenderer && skinRenderer.resize();
-    });
-    tab2d.addEventListener('click', () => {
-        tab2d.classList.add('active'); tab3d.classList.remove('active');
-        panel2d.style.display = ''; panel3d.style.display = 'none';
-    });
+    // ── Tab switching ──────────────────────────────────────────────────────
+    const allTabs   = [tab3d, tab2d, tabEdit];
+    const allPanels = [panel3d, panel2d, panelEdit];
 
-    // Resize observer
+    const switchTab = (activeTab, activePanel, onSwitch) => {
+        allTabs.forEach(t   => t.classList.remove('active'));
+        allPanels.forEach(p => { p.style.display = 'none'; });
+        activeTab.classList.add('active');
+        activePanel.style.display = 'flex';
+        activePanel.style.flexDirection = 'column';
+        if (onSwitch) onSwitch();
+    };
+
+    tab3d.addEventListener('click', () => switchTab(tab3d, panel3d, () => {
+        skinRenderer && skinRenderer.resize();
+    }));
+    tab2d.addEventListener('click', () => switchTab(tab2d, panel2d, () => {
+        build2d();
+    }));
+    tabEdit.addEventListener('click', () => switchTab(tabEdit, panelEdit, () => {
+        buildEditor();
+    }));
+
+    // ── Resize observer ────────────────────────────────────────────────────
     if (window.ResizeObserver) {
         const ro = new ResizeObserver(() => skinRenderer && skinRenderer.resize());
         ro.observe(panel3d);
